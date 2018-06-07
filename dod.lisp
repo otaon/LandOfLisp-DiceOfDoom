@@ -20,6 +20,35 @@
 
 
 ;;; ==========================================================================
+;;; DIRTY IMPERATIVE
+;;; ==========================================================================
+
+(defun gen-board ()
+  "ゲーム盤をランダムに作る
+   ret: ランダムで生成したゲーム盤(配列)"
+  (board-array (loop for n below *board-hexnum*
+                     collect (list (random *num-players*)
+                                   (1+ (random *max-dice*))))))
+
+
+(defun draw-board (board)
+  "ゲーム盤を画面に表示する
+   board: ゲーム盤(配列)"
+  ;; 行ごとに表示する
+  (loop for y below *board-size*
+        do (progn (fresh-line)
+                  ;; 斜めに表示されるようにするため、行に合わせて空白を入れる
+                  (loop repeat (- *board-size* y)
+                        do (princ "  "))
+                  (loop for x below *board-size*
+                        ;; 表示するマス目の情報をhexに代入する
+                        for hex = (aref board (+ x (* *board-size* y)))
+                        ;; 「プレイヤーID-サイコロの個数」のフォーマットでマスの情報を表示
+                        do (format t "~a-~a " (player-letter (first hex))
+                                   (second hex))))))
+
+
+;;; ==========================================================================
 ;;; CLEAN FUNCTION
 ;;; ==========================================================================
 
@@ -47,6 +76,20 @@
 
 ;;; ゲームツリーの生成 -------------------------------------------------------
 
+;;; ゲームツリーの例
+;;; CL-USER> (game-tree #((0 1) (1 1) (0 2) (1 1)) 0 0 t)
+;;; (0                                   1回目:手番=プレイヤー0
+;;;  #((0 1) (1 1) (0 2) (1 1))          1回目:ゲーム盤情報
+;;;  (                                   2回目:有効なゲーム盤のリスト
+;;;   ((2 3)                               2回目:行動=攻撃
+;;;    (0                                  2回目:手番=プレイヤー0
+;;;     #((0 1) (1 1) (0 1) (0 1))         2回目:ゲーム盤情報
+;;;     (                                  3回目:有効なゲーム盤のリスト
+;;;      (NIL                                3回目:行動=相手に指し手を渡す
+;;;       (1                                 3回目:手番=プレイヤー1
+;;;        #((0 1) (1 1) (0 1) (0 1))        3回目:ゲーム盤情報
+;;;        NIL)))))))                          4回目:有効なゲーム盤が無い
+
 (defun game-tree (board player spare-dice first-move)
   "与えられた初期条件から、全ての可能な指し手を表現する木構造を作る
    この関数はゲーム開始時に1度だけ呼ばれる
@@ -57,7 +100,7 @@
    ret: 全体のゲーム木"
   (list player
         board
-        ;; 相手に手番を渡す指し手
+        ;; 攻撃をやめて相手に手番を渡す指し手
         (add-passing-move board
                           player
                           spare-dice
@@ -66,6 +109,8 @@
                           (attacking-moves board player spare-dice))))
 
 
+;;; 相手に手番を渡す ---------------------------------------------------------
+
 (defun add-passing-move (board player spare-dice first-move moves)
   "指し手のリストに自分の手番を終了する動きを追加する
    board: 盤面の情報
@@ -73,45 +118,104 @@
    spare-dice: 現在の手番でプレイヤーが獲得したサイコロの個数
    first-move: 今のプレイヤーが手番を得て最初の指し手かどうか
    moves: 現在までに集められた可能な指し手
-   ret: プレイヤーが"
-  ;; プレイヤーが手番を得てから最初の指し手の場合、
+   ret: プレイヤーが相手に指し手を渡してから後の全てのゲーム木"
   (if first-move
+      ;; プレイヤーが手番を得てから最初の指し手なら、絶対攻撃せねばならないためmovesを返す
       moves
+      ;; プレイヤーが手番を得てから2回目移行の指し手なら、新たな指し手を加える
       (cons (list
               ;; 指し手=自分の手番を終了する=nil
               nil
               ;; 手が指された後に起こりうる全てのパターンを持つゲーム木
-              ;; プレイヤーはここで手番を終了するので、サイコロを補給する
+              ;; プレイヤーはここで自分の手番を終了しているので、
+              ;; 以降のゲーム木へはサイコロを補給した状態で遷移する
               (game-tree (add-new-dice board player (1- spare-dice))  ; 盤面の情報
                          (mod (1+ player) *num-players*)  ; 手番を他プレイヤーに変更
                          0  ; プレイヤーに補給されるサイコロの個数
-                         t))  ; 今のプレイヤーが手番を得て最初の指し手
+                         t))  ; 今のプレイヤーが手番を得てからの最初の指し手
             moves)))
 
-;;; ==========================================================================
-;;; DIRTY IMPERATIVE
-;;; ==========================================================================
 
-(defun gen-board ()
-  "ゲーム盤をランダムに作る
-   ret: ランダムで生成したゲーム盤(配列)"
-  (board-array (loop for n below *board-hexnum*
-                     collect (list (random *num-players*)
-                                   (1+ (random *max-dice*))))))
+;;; 攻撃の手を計算する -------------------------------------------------------
+
+(defun attacking-moves (board cur-player spare-dice)
+  "可能な攻撃の指し手をゲーム木に追加する
+   board: 現在のゲーム盤情報
+   cur-player: 現在のプレイヤー
+   spare-dice: 現在の手番でプレイヤーが獲得したサイコロの個数"
+  (labels ((player (pos)
+             (car (aref board pos)))
+           (dice (pos)
+             (cadr (aref board pos))))
+    (mapcan (lambda (src)
+              (when (eq (player src) cur-player)
+                (mapcan (lambda (dst)
+                          (when (and (not (eq (player dst) cur-player))
+                                     (> (dice src) (dice dst)))
+                            (list
+                              (list (list src dst)
+                                    (game-tree (board-attack board
+                                                             cur-player
+                                                             src
+                                                             dst
+                                                             (dice src))
+                                               cur-player
+                                               (+ spare-dice (dice dst))
+                                               nil)))))
+                        (neighbors src))))
+            (loop for n below *board-hexnum*
+              collect n))))
 
 
-(defun draw-board (board)
-  "ゲーム盤を画面に表示する
-   board: ゲーム盤(配列)"
-  ;; 行ごとに表示する
-  (loop for y below *board-size*
-        do (progn (fresh-line)
-                  ;; 斜めに表示されるようにするため、行に合わせて空白を入れる
-                  (loop repeat (- *board-size* y)
-                        do (princ "  "))
-                  (loop for x below *board-size*
-                        ;; 表示するマス目の情報をhexに代入する
-                        for hex = (aref board (+ x (* *board-size* y)))
-                        ;; 「プレイヤーID-サイコロの個数」のフォーマットでマスの情報を表示
-                        do (format t "~a-~a " (player-letter (first hex))
-                                   (second hex))))))
+;;; 隣接するマスを見つける----------------------------------------------------
+
+(defun neighbors (pos)
+  "あるマスに隣接するマスを見つける
+   pos: 現在のマス目
+   ret: 隣接するマス目のリスト"
+  (let ((up (- pos *board-size*))
+        (down (+ pos *board-size*)))
+    (loop for p in (append (list up down)
+                           (unless (zerop (mod pos *board-size*))
+                             (list (1- up) (1- pos)))
+                           (unless (zerop (mod (1+ pos) *board-size*))
+                             (list (1+ pos) (1+ down))))
+          when (and (>= p 0) (< p *board-hexnum*))
+          collect p)))
+
+
+;;; 攻撃 ---------------------------------------------------------------------
+
+(defun board-attack (board player src dst dice)
+  "マスsrcからマスdstを攻撃したときに何が起きるのかを計算する
+   board: 現在のゲーム盤情報
+   player: 現在のプレイヤーID
+   src: 攻撃元のマス目
+   dst: 攻撃先のマス目
+   dice: srcにあるサイコロの個数"
+  (board-array (loop for pos from 0
+                     for hex across board
+                     collect (cond ((eq pos src) (list player 1))
+                                   ((eq pos dst) (list player (1- dice)))
+                                   (t hex)))))
+
+
+;;; 補給 ---------------------------------------------------------------------
+
+(defun add-new-dice (board player spare-dice)
+  "ゲーム盤にサイコロを足していく
+   board: 現在のゲーム盤情報
+   player: 現在のプレイヤーID
+   spare-dice: 補給できるサイコロの個数"
+  (labels ((f (lst n)
+             (cond ((null lst) nil)
+                   ((zerop n) lst)
+                   (t (let ((cur-player (caar lst))
+                            (cur-dice (cadar lst)))
+                        (if (and (eq cur-player player) (< cur-dice *max-dice*))
+                            (cons (list cur-player (1+ cur-dice))
+                                  (f (cdr lst) (1- n)))
+                            (cons (car lst) (f (cdr lst) n))))))))
+    (board-array (f (coerce board 'list) spare-dice))))
+
+
