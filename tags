@@ -1,0 +1,25 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+*board-hexnum*	dod.lisp	/^(defparameter *board-hexnum* (* *board-size* *board-size*)) ; 盤上のマス数$/;"	f
+*board-size*	dod.lisp	/^(defparameter *board-size* 2)   ; 1辺のマスの数$/;"	f
+*max-dice*	dod.lisp	/^(defparameter *max-dice* 3)     ; 1マスにおけるサイコロの最大数$/;"	f
+*num-players*	dod.lisp	/^(defparameter *num-players* 2)  ; プレイヤー数$/;"	f
+add-new-dice	dod.lisp	/^(defun add-new-dice (board player spare-dice);{{{$/;"	f
+add-passing-move	dod.lisp	/^(defun add-passing-move (board player spare-dice first-move moves);{{{$/;"	f
+announce-winner	dod.lisp	/^(defun announce-winner (board);{{{$/;"	f
+attacking-moves	dod.lisp	/^(defun attacking-moves (board cur-player spare-dice);{{{$/;"	f
+board-array	dod.lisp	/^(defun board-array (lst);{{{$/;"	f
+board-attack	dod.lisp	/^(defun board-attack (board player src dst dice);{{{$/;"	f
+draw-board	dod.lisp	/^(defun draw-board (board);{{{$/;"	f
+game-tree	dod.lisp	/^(defun game-tree (board player spare-dice first-move);{{{$/;"	f
+gen-board	dod.lisp	/^(defun gen-board ();{{{$/;"	f
+handle-human	dod.lisp	/^(defun handle-human (tree);{{{$/;"	f
+neighbors	dod.lisp	/^(defun neighbors (pos);{{{$/;"	f
+play-vs-human	dod.lisp	/^(defun play-vs-human (tree);{{{$/;"	f
+player-letter	dod.lisp	/^(defun player-letter (n);{{{$/;"	f
+print-info	dod.lisp	/^(defun print-info (tree);{{{$/;"	f
+winners	dod.lisp	/^(defun winners (board);{{{$/;"	f

@@ -2,8 +2,7 @@
 ;;; ゲーム情報
 ;;; ==========================================================================
 
-;{{{
-;;; ゲーム情報
+;;; ゲーム情報 ;{{{
 (defparameter *num-players* 2)  ; プレイヤー数
 (defparameter *max-dice* 3)     ; 1マスにおけるサイコロの最大数
 (defparameter *board-size* 2)   ; 1辺のマスの数
@@ -26,7 +25,6 @@
 ;;; ==========================================================================
 
 ;;; ゲーム盤初期化・ゲーム盤描画 ---------------------------------------------
-
 (defun gen-board ();{{{
   "ゲーム盤をランダムに作る
    ret: ランダムで生成したゲーム盤(配列)"
@@ -54,7 +52,6 @@
 ;}}}
 
 ;;; ゲームループ -------------------------------------------------------------
-
 (defun play-vs-human (tree);{{{
   "対人専用ゲームループ
    tree: 現在のゲーム木
@@ -69,7 +66,6 @@
 ;}}}
 
 ;;; ゲームの状態を表示する ---------------------------------------------------
-
 (defun print-info (tree);{{{
   "現在のゲーム木が指すゲームの状態を表示する
    tree: 現在のゲーム木
@@ -80,7 +76,6 @@
 ;}}}
 
 ;;; 人間のプレイヤーからの入力を処理する -------------------------------------
-
 (defun handle-human (tree);{{{
   "人間のプレイヤーに指し手を選んでもらう
    tree: ゲーム木
@@ -104,7 +99,6 @@
 ;}}}
 
 ;;; 勝者をアナウンスする -----------------------------------------------------
-
 (defun announce-winner (board);{{{
   "ゲームの勝者を表示する
    board: 現在のゲーム盤情報
@@ -115,7 +109,7 @@
         ;; 勝者が複数いる場合、全ての勝者の間でタイだったと表示する
         (format t "The game is a tie between ~a" (mapcar #'player-letter w))
         ;; 勝者が1人のみいる場合、勝者はこのプレイヤーだったと表示する
-        (format t "Ther winner is ~a" (player-letter (car w))))))
+        (format t "The winner is ~a" (player-letter (car w))))))
 ;}}}
 
 
@@ -124,7 +118,6 @@
 ;;; ==========================================================================
 
 ;;; ゲーム盤情報の型変換ユーティリティ ---------------------------------------
-
 (defun board-array (lst);{{{
   "リストで表現されたゲーム盤を配列表現へと変える
    lst: ゲーム盤(リスト)
@@ -157,7 +150,6 @@
 ;;;        NIL)))))))                          4回目:有効なゲーム盤が無い
 
 ;;; ゲームツリーの生成
-
 (defun game-tree (board player spare-dice first-move);{{{
   "与えられた初期条件から、全ての可能な指し手を表現する木構造を作る
    この関数はゲーム開始時に1度だけ呼ばれる
@@ -178,7 +170,6 @@
 ;}}}
 
 ;;; 相手に手番を渡す ---------------------------------------------------------
-
 (defun add-passing-move (board player spare-dice first-move moves);{{{
   "指し手のリストに自分の手番を終了する動きを追加する
    board: 盤面の情報
@@ -205,12 +196,12 @@
 ;}}}
 
 ;;; 攻撃の手を計算する -------------------------------------------------------
-
 (defun attacking-moves (board cur-player spare-dice);{{{
   "可能な攻撃の指し手をゲーム木に追加する
    board: 現在のゲーム盤情報
    cur-player: 現在のプレイヤー
-   spare-dice: 現在の手番でプレイヤーが獲得したサイコロの個数"
+   spare-dice: 現在の手番でプレイヤーが獲得したサイコロの個数
+   ret: 可能な攻撃の指し手によるゲーム木"
   (labels ((player (pos)
              ;; あるマス目のプレイヤーIDを返す
              (car (aref board pos)))
@@ -218,27 +209,33 @@
              ;; あるマス目のサイコロの個数を返す
              (cadr (aref board pos))))
     (mapcan (lambda (src)
+              ;; 着目中のマス目が現在のプレイヤーのマス目なら、
+              ;; 隣接するマスへの攻撃の指し手によるゲーム木のリストを返す
               (when (eq (player src) cur-player)
                 (mapcan (lambda (dst)
+                          ;; 隣接する攻撃先のマスが相手の陣で、
+                          ;; かつ、自陣のサイコロが相手の陣のサイコロよりも多い場合、
+                          ;; 攻撃指し手によるゲーム木を返す
                           (when (and (not (eq (player dst) cur-player))
                                      (> (dice src) (dice dst)))
+                            ;; (((攻撃の指し手) (攻撃の指し手によるゲーム木)))
                             (list
                               (list (list src dst)
-                                    (game-tree (board-attack board
-                                                             cur-player
-                                                             src
-                                                             dst
-                                                             (dice src))
-                                               cur-player
-                                               (+ spare-dice (dice dst))
-                                               nil)))))
+                                    (game-tree
+                                      ;; 攻撃後のゲーム盤情報
+                                      (board-attack board cur-player src dst (dice src))
+                                      ;; 現在のプレイヤーID
+                                      cur-player
+                                      ;; 攻撃によって得られたサイコロの個数
+                                      (+ spare-dice (dice dst))
+                                      nil)))))
                         (neighbors src))))
+            ;; ゲーム盤の全マス番号
             (loop for n below *board-hexnum*
-              collect n))))
+                  collect n))))
 ;}}}
 
 ;;; 隣接するマスを見つける----------------------------------------------------
-
 (defun neighbors (pos);{{{
   "あるマスに隣接するマスを見つける
    pos: 現在のマス目
@@ -255,23 +252,25 @@
 ;}}}
 
 ;;; 攻撃 ---------------------------------------------------------------------
-
 (defun board-attack (board player src dst dice);{{{
-  "マスsrcからマスdstを攻撃したときに何が起きるのかを計算する
+  "マスsrcからマスdstを攻撃したときのサイコロの移動を計算する
    board: 現在のゲーム盤情報
    player: 現在のプレイヤーID
    src: 攻撃元のマス目
    dst: 攻撃先のマス目
-   dice: srcにあるサイコロの個数"
+   dice: srcにあるサイコロの個数
+   ret: 攻撃後のゲーム盤情報"
   (board-array (loop for pos from 0
                      for hex across board
+                     ;; 攻撃元のマス目にはサイコロを1個残す
+                     ;; 攻撃先のマス目には攻撃元にあったサイコロ-1個を置く
+                     ;; その他のマス目には変化なし
                      collect (cond ((eq pos src) (list player 1))
                                    ((eq pos dst) (list player (1- dice)))
                                    (t hex)))))
 ;}}}
 
 ;;; 補給 ---------------------------------------------------------------------
-
 (defun add-new-dice (board player spare-dice);{{{
   "ゲーム盤にサイコロを足していく
    board: 現在のゲーム盤情報
@@ -290,7 +289,6 @@
 ;}}}
 
 ;;; 勝者を決定する -----------------------------------------------------------
-
 (defun winners (board);{{{
   "獲得マス数1位のプレイヤー全てをリストにして返す"
   (let* ((tally (loop for hex across board
