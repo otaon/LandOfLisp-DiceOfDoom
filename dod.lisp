@@ -240,14 +240,15 @@
   "あるマスに隣接するマスを見つける
    pos: 現在のマス目
    ret: 隣接するマス目のリスト"
-  (let ((up (- pos *board-size*))
-        (down (+ pos *board-size*)))
-    (loop for p in (append (list up down)
+  (let ((up (- pos *board-size*))  ; 上のマス
+        (down (+ pos *board-size*)))  ; 下のマス
+    (loop for p in (append (list up down)  ; 
                            (unless (zerop (mod pos *board-size*))
-                             (list (1- up) (1- pos)))
+                             (list (1- up) (1- pos)))  ; 左上のマス, 左のマス
                            (unless (zerop (mod (1+ pos) *board-size*))
-                             (list (1+ pos) (1+ down))))
+                             (list (1+ pos) (1+ down))))  ; 右のマス, 右下のマス
           when (and (>= p 0) (< p *board-hexnum*))
+          ;; ゲーム盤に収まっているマス目のみ収集する
           collect p)))
 ;}}}
 
@@ -275,28 +276,49 @@
   "ゲーム盤にサイコロを足していく
    board: 現在のゲーム盤情報
    player: 現在のプレイヤーID
-   spare-dice: 補給できるサイコロの個数"
+   spare-dice: 補給できるサイコロの個数
+   ret: サイコロ追加後のゲーム盤情報"
   (labels ((f (lst n)
+             ;; lst: ゲーム盤情報(リスト)
+             ;; n: 補給できるサイコロの個数
+
+             ;; ゲーム盤情報が無ければ、そのまま無し(nil)を返す
+             ;; 補給できるサイコロが無ければ、ゲーム盤情報を返す
+             ;; その他の場合、
              (cond ((null lst) nil)
                    ((zerop n) lst)
-                   (t (let ((cur-player (caar lst))
-                            (cur-dice (cadar lst)))
+                   (t (let ((cur-player (caar lst))  ; 現在のプレイヤーID
+                            (cur-dice (cadar lst)))  ; 着目中のマスのサイコロの個数
                         (if (and (eq cur-player player) (< cur-dice *max-dice*))
+                            ;; 着目中のマスが現在のプレイヤーのマス、かつ、
+                            ;; マスにおけるサイコロの個数が上限でなければ、
+                            ;; サイコロを追加して次のマスへ移動
+                            ;; そうでなければ、サイコロを追加せずに次のマスへ移動
                             (cons (list cur-player (1+ cur-dice))
                                   (f (cdr lst) (1- n)))
                             (cons (car lst) (f (cdr lst) n))))))))
+    ;; ゲーム盤情報をリストに変換して、
+    ;; サイコロを追加して、
+    ;; ゲーム盤情報を再び配列に戻す
     (board-array (f (coerce board 'list) spare-dice))))
 ;}}}
 
 ;;; 勝者を決定する -----------------------------------------------------------
 (defun winners (board);{{{
-  "獲得マス数1位のプレイヤー全てをリストにして返す"
-  (let* ((tally (loop for hex across board
-                      collect (car hex)))
-         (totals (mapcar (lambda (player)
-                           (cons player (count player tally)))
-                         (remove-duplicates tally)))
-         (best (apply #'max (mapcar #'cdr totals))))
+  "獲得マス数1位のプレイヤー全てをリストにして返す
+   board: ゲーム盤情報
+   ret: ゲーム盤情報から算出した勝者のリスト"
+  (let*
+    ;; マスを所有しているプレイヤー達のIDのリスト(重複有り)
+    ((tally (loop for hex across board
+                  collect (car hex)))
+     ;; マス所有者と所有マス数のコンスセル
+     (totals (mapcar (lambda (player)
+                       (cons player (count player tally)))
+                     (remove-duplicates tally)))
+     ;; 所有マス数の最大値
+     (best (apply #'max (mapcar #'cdr totals))))
+    ;; マスを最大数所有しているプレイヤーのIDのリスト
     (mapcar #'car
             (remove-if (lambda (x)
                          (not (eq (cdr x) best)))
