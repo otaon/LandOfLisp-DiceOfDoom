@@ -51,7 +51,7 @@
                                    (second hex))))))
 ;}}}
 
-;;; ゲームループ -------------------------------------------------------------
+;;; ゲームループ(対人用) -----------------------------------------------------
 (defun play-vs-human (tree);{{{
   "対人専用ゲームループ
    tree: 現在のゲーム木
@@ -96,6 +96,21 @@
     (fresh-line)
     ;; プレイヤーが選んだ指し手に対応するゲーム木を返す
     (cadr (nth (1- (read)) moves))))
+;}}}
+
+;;; ゲームループ(対AI用) -----------------------------------------------------
+(defun play-vs-computer (tree);{{{
+  "AIに指し手を選んでもらう
+   tree: ゲーム木
+   ret: AIが選択した指し手に対応したゲーム木"
+  ;; ゲームの状態を表示
+  (print-info tree)
+  ;; 可能な指し手が無ければ、勝者を表示してゲーム終了
+  ;; プレイヤーIDが0(人間の手番)なら、人間に指し手を選択してもらう
+  ;; プレイヤーIDが0以外(AIの手番)なら、AIに指し手を選択してもらう
+  (cond ((null (caddr tree)) (announce-winner (cadr tree)))
+        ((zerop (car tree)) (play-vs-computer (handle-human tree)))
+        (t (play-vs-computer (handle-computer tree)))))
 ;}}}
 
 ;;; 勝者をアナウンスする -----------------------------------------------------
@@ -326,9 +341,11 @@
 ;}}}
 
 ;;; ミニマックスアルゴリズムを用いたAI ---------------------------------------
-(defun rate-position (tree player)
-  "ゲーム木のある節での点数を計算する
-   "
+(defun rate-position (tree player);{{{
+  "ゲーム木のある節での特定のプレイヤーの点数を計算する
+   tree: ゲーム木
+   player: プレイヤーID
+   ret: ゲーム木のある節での特定のプレイヤーの点数"
   (let ((moves (caddr tree)))  ; ある節で可能な指し手のリスト
     (if moves
         ;; 可能な指し手があるなら、各指し手について、
@@ -347,4 +364,29 @@
           (if (member player w)
               (/ 1 (length w))
               0)))))
+;}}}
 
+(defun get-ratings (tree player);{{{
+  "特定のプレイヤーに対して、その時に可能な指し手によるゲーム木の点数のリストを計算する
+   tree: ゲーム木
+   player: プレイヤーID
+   ret: 特定のプレイヤーの、その時に可能な指し手の点数のリスト"
+  (mapcar (lambda (move)
+            ;; あるゲーム木における着目したプレイヤーの点数
+            (rate-position (cadr move) player))
+          ;; 可能な指し手によるゲーム木のリスト
+          (caddr tree)))
+;}}}
+
+;;; AIのプレイヤーからの入力を処理する ---------------------------------------
+(defun handle-computer (tree);{{{
+  "tree: 現在のゲーム木
+   ret: 現在のゲーム木で最も高い点数の指し手"
+  ;; ratings: 現在のゲーム木(プレイヤーは現在のプレイヤー)の点数のリスト
+  (let* ((player (car tree))  ; 手番のプレイヤー
+         (ratings (get-ratings tree player))  ; 手番のプレイヤーにとっての点数
+         (moves (caddr tree)))  ; 可能な指し手によるゲーム木のリスト
+    ;; 現在のゲーム木で最も高い点数の指し手
+    ;; **ratingの並びがゲーム木の並びと対応している前提なので、崩してはいけない**
+    (cadr (nth (position (apply #'max ratings) ratings) moves))))
+;}}}
