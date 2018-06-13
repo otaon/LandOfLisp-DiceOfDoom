@@ -5,7 +5,7 @@
 ;;; ゲーム情報 ;{{{
 (defparameter *num-players* 2)  ; プレイヤー数
 (defparameter *max-dice* 3)     ; 1マスにおけるサイコロの最大数
-(defparameter *board-size* 2)   ; 1辺のマスの数
+(defparameter *board-size* 3)   ; 1辺のマスの数
 (defparameter *board-hexnum* (* *board-size* *board-size*)) ; 盤上のマス数
 ;}}}
 
@@ -182,6 +182,14 @@
                           first-move
                           ;; 攻撃の指し手
                           (attacking-moves board player spare-dice))))
+
+;; game-treeメモ化対応版
+(let ((old-game-tree (symbol-function 'game-tree));{{{
+      (previous (make-hash-table :test #'equalp)))
+  (defun game-tree (&rest rest)
+    (or (gethash rest previous)
+        (setf (gethash rest previous) (apply old-game-tree rest)))))
+;}}}
 ;}}}
 
 ;;; 相手に手番を渡す ---------------------------------------------------------
@@ -265,6 +273,14 @@
           when (and (>= p 0) (< p *board-hexnum*))
           ;; ゲーム盤に収まっているマス目のみ収集する
           collect p)))
+
+;; neighborsメモ化対応版
+(let ((old-neighbors (symbol-function 'neighbors));{{{
+      (previous (make-hash-table)))
+  (defun neighbors (pos)
+    (or (gethash pos previous)
+        (setf (gethash pos previous) (funcall old-neighbors pos)))))
+;}}}
 ;}}}
 
 ;;; 攻撃 ---------------------------------------------------------------------
@@ -293,29 +309,34 @@
    player: 現在のプレイヤーID
    spare-dice: 補給できるサイコロの個数
    ret: サイコロ追加後のゲーム盤情報"
-  (labels ((f (lst n)
+  (labels ((f (lst n acc)
              ;; lst: ゲーム盤情報(リスト)
              ;; n: 補給できるサイコロの個数
+             ;; acc: 新たなサイコロの追加を考慮された、更新済みのマスのリスト(右下->左上の順)
 
-             ;; ゲーム盤情報が無ければ、そのまま無し(nil)を返す
-             ;; 補給できるサイコロが無ければ、ゲーム盤情報を返す
-             ;; その他の場合、サイコロを補給する
-             (cond ((null lst) nil)
-                   ((zerop n) lst)
-                   (t (let ((cur-player (caar lst))  ; 現在のプレイヤーID
-                            (cur-dice (cadar lst)))  ; 着目中のマスのサイコロの個数
-                        (if (and (eq cur-player player) (< cur-dice *max-dice*))
-                            ;; 着目中のマスが現在のプレイヤーのマス、かつ、
-                            ;; マスにおけるサイコロの個数が上限でなければ、
-                            ;; サイコロを追加して次のマスへ移動
-                            (cons (list cur-player (1+ cur-dice))
-                                  (f (cdr lst) (1- n)))
-                            ;; そうでなければ、サイコロを追加せずに次のマスへ移動
-                            (cons (car lst) (f (cdr lst) n))))))))
+             (cond
+               ;; 補給できるサイコロが無ければ、ゲーム盤情報を返す
+               ((zerop n) (append (reverse acc) lst))
+               ;; ゲーム盤を最後まで走査したら、サイコロ追加後のゲーム盤情報を返す
+               ((null lst) (reverse acc))
+               ;; その他の場合、サイコロを補給する
+               (t (let ((cur-player (caar lst))  ; 現在のプレイヤーID
+                        (cur-dice (cadar lst)))  ; 着目中のマスのサイコロの個数
+                    (if (and (eq cur-player player) (< cur-dice *max-dice*))
+                        ;; 着目中のマスが現在のプレイヤーのマス、かつ、
+                        ;; マスにおけるサイコロの個数が上限でなければ、
+                        ;; サイコロを追加して次のマスへ移動
+                        (f (cdr lst)  ; サイコロを足していく対象のゲーム盤のうち未走査部分
+                           (1- n)  ; 補給できるサイコロを1減らす
+                           (cons (list cur-player (1+ cur-dice)) acc))  ; 更新済みのマスのリスト
+                        ;; そうでなければ、サイコロを追加せずに次のマスへ移動
+                        (f (cdr lst)  ; サイコロを足していく対象のゲーム盤のうち未走査部分
+                           n  ; 補給できるサイコロ
+                           (cons (car lst) acc))))))))  ; 更新済みのマスのリスト
     ;; ゲーム盤情報をリストに変換して、
     ;; サイコロを追加して、
     ;; ゲーム盤情報を再び配列に戻す
-    (board-array (f (coerce board 'list) spare-dice))))
+    (board-array (f (coerce board 'list) spare-dice ()))))
 ;}}}
 
 ;;; 勝者を決定する -----------------------------------------------------------
@@ -364,6 +385,17 @@
           (if (member player w)
               (/ 1 (length w))
               0)))))
+
+;; rate-positionメモ化対応版
+(let ((old-rate-position (symbol-function 'rate-position));{{{
+      (previous (make-hash-table)))
+  (defun rate-position (tree player)
+    (let ((tab (gethash player previous)))
+      (unless tab
+        (setf tab (setf (gethash player previous) (make-hash-table))))
+      (or (gethash tree tab)
+          (funcall old-rate-position tree player)))))
+;}}}
 ;}}}
 
 (defun get-ratings (tree player);{{{
