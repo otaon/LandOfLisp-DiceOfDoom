@@ -47,8 +47,7 @@
                         ;; 表示するマス目の情報をhexに代入する
                         for hex = (aref board (+ x (* *board-size* y)))
                         ;; 「プレイヤーID-サイコロの個数」のフォーマットでマスの情報を表示
-                        do (format t "~a-~a " (player-letter (first hex))
-                                   (second hex))))))
+                        do (format t "~a-~a " (player-letter (first hex)) (second hex))))))
 ;}}}
 
 ;;; ゲームループ(対人用) -----------------------------------------------------
@@ -71,7 +70,7 @@
    tree: 現在のゲーム木
    ret: -"
   (fresh-line)
-  (format t "corrent player = ~a" (player-letter (car tree)))
+  (format t "current player = ~a" (player-letter (car tree)))
   (draw-board (cadr tree)))
 ;}}}
 

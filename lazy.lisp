@@ -125,7 +125,7 @@
    lst: 対象の遅延リスト
    ret: 条件に合う最初の要素(無ければnil)"
   (unless (lazy-null lst)
-    (let ((x (lazy-null lst)))
+    (let ((x (lazy-car lst)))
       (if (funcall fun x)
         x
         (lazy-find-if fun (lazy-cdr lst))))))
@@ -140,3 +140,4 @@
       (lazy-car lst)
       (lazy-nth (1- n) (lazy-cdr lst))))
 ;}}}
+
