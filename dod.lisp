@@ -421,3 +421,4 @@
     ;; **ratingの並びがゲーム木の並びと対応している前提なので、崩してはいけない**
     (cadr (nth (position (apply #'max ratings) ratings) moves))))
 ;}}}
+

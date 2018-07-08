@@ -4,22 +4,57 @@
 !_TAG_PROGRAM_NAME	Exuberant Ctags	//
 !_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
 !_TAG_PROGRAM_VERSION	5.8	//
+*ai-level*	dod2.lisp	/^(defparameter *ai-level* 4)$/;"	f
 *board-hexnum*	dod.lisp	/^(defparameter *board-hexnum* (* *board-size* *board-size*)) ; 盤上のマス数$/;"	f
-*board-size*	dod.lisp	/^(defparameter *board-size* 2)   ; 1辺のマスの数$/;"	f
+*board-hexnum*	dod2.lisp	/^(defparameter *board-hexnum* (* *board-size* *board-size*))$/;"	f
+*board-size*	dod.lisp	/^(defparameter *board-size* 3)   ; 1辺のマスの数$/;"	f
+*board-size*	dod2.lisp	/^(defparameter *board-size* 5);{{{$/;"	f
 *max-dice*	dod.lisp	/^(defparameter *max-dice* 3)     ; 1マスにおけるサイコロの最大数$/;"	f
 *num-players*	dod.lisp	/^(defparameter *num-players* 2)  ; プレイヤー数$/;"	f
+ab-get-ratings-max	dod2.lisp	/^(defun ab-get-ratings-max (tree player upper-limit lower-limit);{{{$/;"	f
+ab-get-ratings-min	dod2.lisp	/^(defun ab-get-ratings-min (tree player upper-limit lower-limit);{{{$/;"	f
+ab-rate-position	dod2.lisp	/^(defun ab-rate-position (tree player upper-limit lower-limit);{{{$/;"	f
 add-new-dice	dod.lisp	/^(defun add-new-dice (board player spare-dice);{{{$/;"	f
 add-passing-move	dod.lisp	/^(defun add-passing-move (board player spare-dice first-move moves);{{{$/;"	f
+add-passing-move	dod2.lisp	/^(defun add-passing-move (board player spare-dice first-move moves);{{{$/;"	f
 announce-winner	dod.lisp	/^(defun announce-winner (board);{{{$/;"	f
 attacking-moves	dod.lisp	/^(defun attacking-moves (board cur-player spare-dice);{{{$/;"	f
+attacking-moves	dod2.lisp	/^(defun attacking-moves (board cur-player spare-dice);{{{$/;"	f
 board-array	dod.lisp	/^(defun board-array (lst);{{{$/;"	f
 board-attack	dod.lisp	/^(defun board-attack (board player src dst dice);{{{$/;"	f
 draw-board	dod.lisp	/^(defun draw-board (board);{{{$/;"	f
+force	lazy.lisp	/^(defun force (lazy-value);{{{$/;"	f
 game-tree	dod.lisp	/^(defun game-tree (board player spare-dice first-move);{{{$/;"	f
 gen-board	dod.lisp	/^(defun gen-board ();{{{$/;"	f
+get-ratings	dod.lisp	/^(defun get-ratings (tree player);{{{$/;"	f
+get-ratings	dod2.lisp	/^(defun get-ratings (tree player);{{{$/;"	f
+handle-computer	dod.lisp	/^(defun handle-computer (tree);{{{$/;"	f
+handle-computer	dod2.lisp	/^(defun handle-computer (tree);{{{$/;"	f
 handle-human	dod.lisp	/^(defun handle-human (tree);{{{$/;"	f
+handle-human	dod2.lisp	/^(defun handle-human (tree);{{{$/;"	f
+lazy	lazy.lisp	/^(defmacro lazy (&body body);{{{$/;"	f
+lazy-car	lazy.lisp	/^(defun lazy-car (x);{{{$/;"	f
+lazy-cdr	lazy.lisp	/^(defun lazy-cdr (x);{{{$/;"	f
+lazy-cons	lazy.lisp	/^(defmacro lazy-cons (a b);{{{$/;"	f
+lazy-find-if	lazy.lisp	/^(defun lazy-find-if (fun lst);{{{$/;"	f
+lazy-mapcan	lazy.lisp	/^(defun lazy-mapcan (fun lst);{{{$/;"	f
+lazy-mapcar	lazy.lisp	/^(defun lazy-mapcar (fun lst);{{{$/;"	f
+lazy-nil	lazy.lisp	/^(defun lazy-nil ();{{{$/;"	f
+lazy-nth	lazy.lisp	/^(defun lazy-nth (n lst);{{{$/;"	f
+lazy-null	lazy.lisp	/^(defun lazy-null (x);{{{$/;"	f
+limit-tree-depth	dod2.lisp	/^(defun limit-tree-depth (tree depth);{{{$/;"	f
+make-lazy	lazy.lisp	/^(defun make-lazy (lst);{{{$/;"	f
 neighbors	dod.lisp	/^(defun neighbors (pos);{{{$/;"	f
+play-vs-computer	dod.lisp	/^(defun play-vs-computer (tree);{{{$/;"	f
+play-vs-computer	dod2.lisp	/^(defun play-vs-computer (tree);{{{$/;"	f
 play-vs-human	dod.lisp	/^(defun play-vs-human (tree);{{{$/;"	f
+play-vs-human	dod2.lisp	/^(defun play-vs-human (tree);{{{$/;"	f
 player-letter	dod.lisp	/^(defun player-letter (n);{{{$/;"	f
 print-info	dod.lisp	/^(defun print-info (tree);{{{$/;"	f
+rate-position	dod.lisp	/^(defun rate-position (tree player);{{{$/;"	f
+rate-position	dod2.lisp	/^(defun rate-position (tree player);{{{$/;"	f
+score-board	dod2.lisp	/^(defun score-board (board player);{{{$/;"	f
+take	lazy.lisp	/^(defun take (n lst);{{{$/;"	f
+take-all	lazy.lisp	/^(defun take-all (lst);{{{$/;"	f
+threatened	dod2.lisp	/^(defun threatened (pos board);{{{$/;"	f
 winners	dod.lisp	/^(defun winners (board);{{{$/;"	f
