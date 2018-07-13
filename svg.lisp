@@ -72,14 +72,15 @@
   (princ #\>))  ; タグの閉じ角括弧
 ;}}}
 
-(defmacro tag (name atts &body body);{{{
-  `(progn (print-tag ',name
-                     (list ,@(mapcar (lambda (x)
-                                       `(cons ',(car x) ,(cdr x)))
-                                     (pairs atts)))
-                     nil)
-          ,@body
-          (print-tag ',name nil t)))
+(eval-when (compile load eval);{{{
+  (defmacro tag (name atts &body body)
+    `(progn (print-tag ',name
+                       (list ,@(mapcar (lambda (x)
+                                         `(cons ',(car x) ,(cdr x)))
+                                       (pairs atts)))
+                       nil)
+            ,@body
+            (print-tag ',name nil t))))
 ;}}}
 
 (defmacro svg (width height &body body);{{{
