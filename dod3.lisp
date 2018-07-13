@@ -125,3 +125,46 @@
                          col)))
 
 
+;;; ------------------------------------------------------------------------------------------------
+;;; ゲーム盤を描く
+;;; ------------------------------------------------------------------------------------------------
+;; サイコロの色(赤と青)
+(defparameter *die-colors* '((255 63 63) (63 63 255)))
+
+(defun draw-board-svg (board chosen-tile legal-tiles)
+  "ゲーム盤をsvg記述する
+   board: ゲーム盤情報
+   chosen-tile: 選択中のマス
+   legal-tiles: プレイヤーが次に選択可能なマスのリスト"
+  ;; ゲーム盤の全マスを走査する
+  (loop for y below *board-size*
+        do (loop for x below *board-size*
+                 ;; 現在のマスの番号
+                 for pos = (+ x (* *board-size* y))
+                 ;; 現在のマスの情報(プレイヤーIDとサイコロ数)
+                 for hex = (aref board pos)
+                 ;; 現在のマスの表示座標(x座標)
+                 for xx = (* *board-scale* (+ (* 2 x) (- *board-size* y)))
+                 ;; 現在のマスの表示座標(y座標)
+                 for yy = (* *board-scale* (+ (* y 0.7) *top-offset*))
+                 ;; マスとサイコロの色(上の行ほど暗く補正する)
+                 for col = (brightness (nth (first hex) *die-colors*)
+                                       (* -15 (- *board-size* y)))
+                 ;; 現在のマスが、プレイヤーが次に選択可能なマス、または、選択中のマスの場合、
+                 ;; リンクで囲ってクリック可能にする
+                 ;; 現在のマスが、それ以外の場合、そのまま選択される
+                 do (if (or (member pos legal-tiles) (eql pos chosen-tile))
+                        ;; リンクの場合は1マス分を<g>タグで囲んでグルーピングする
+                        (tag g ()
+                             (tag a ("xlink:href" (make-game-link pos))
+                                  (draw-tile-svg x y pos hex xx yy col chosen-tile)))
+                        (draw-tile-svg x y pos hex xx yy col chosen-tile)))))
+
+(defun make-game-link (pos)
+  "リンクするURLを生成する
+   pos: リンク対象のマスの番号"
+  (format nil "/game.html?chosen=~a" pos))
+
+
+
+
