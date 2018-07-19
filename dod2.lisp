@@ -5,20 +5,25 @@
 ;;; ---------------------------------------------------------------
 
 ;;; カレントディレクトリを変更する
-#+clisp;{{{
-(ext:cd "~/github/Books/LandOfLisp/LandOfLisp-DiceOfDoom")
+;{{{
+#+clisp
+(eval-when (compile load eval)
+  (ext:cd "~/github/Books/LandOfLisp/LandOfLisp-DiceOfDoom"))
 
 #+sbcl
-(progn
-  (sb-posix:chdir #P"~/github/Books/LandOfLisp/LandOfLisp-DiceOfDoom")
-  (setf *default-pathname-defaults* (sb-ext:native-pathname (format nil "~A~A" (sb-posix:getcwd) "/"))))
+(eval-when (compile load eval)
+  (progn
+    (sb-posix:chdir #P"~/github/Books/LandOfLisp/LandOfLisp-DiceOfDoom")
+    (setf *default-pathname-defaults* (sb-ext:native-pathname (format nil "~A~A" (sb-posix:getcwd) "/")))))
 ;}}}
 
 ;;; dice of doom v1と遅延リストライブラリをコンパイル、ロードする
-(compile-file "dod");{{{
-(compile-file "lazy")
-(load "dod")
-(load "lazy")
+(eval-when (compile load eval);{{{
+  (progn
+    (compile-file "dod")
+    (compile-file "lazy")
+    (load "dod")
+    (load "lazy")))
 ;}}}
 
 ;;; dice of doom のゲーム盤サイズ定義

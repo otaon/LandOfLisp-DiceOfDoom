@@ -1,6 +1,35 @@
-;; -------------------------------------------------------------------------------------------------
-;; 英語版リクエストパラメータデコーダ
-;; -------------------------------------------------------------------------------------------------
+;;; ------------------------------------------------------------------------------------------------
+;;; パッケージインポート
+;;; ------------------------------------------------------------------------------------------------
+;;; SBCLソケットパッケージ
+;{{{
+#+sbcl
+(require :sb-bsd-sockets)
+
+;;; SBCLソケットを用いたサーバパッケージを定義
+#+sbcl
+(defpackage "SBCL-SOCKET-SERVER"
+  (:use "COMMON-LISP" "SB-BSD-SOCKETS")
+  (:export "SERVE" "SERVE1"))
+
+;;; パッケージに入る
+#+sbcl
+(in-package SBCL-SOCKET-SERVER)
+
+;;; サーバのURL
+#+sbcl
+(progn
+  (defparameter *host* '(127 0 0 1))
+  (defparameter *port* 8080))
+
+#+sbcl
+(defun serve1 (request-handler)
+  (serve *host* *port* request-handler))
+;}}}
+
+;;; ------------------------------------------------------------------------------------------------
+;;; 英語版リクエストパラメータデコーダ
+;;; ------------------------------------------------------------------------------------------------
 (defun http-char (c1 c2 &optional (default #\Space));{{{
   "16進数で表されたASCIIコードをデコードする
    c1: 2桁目の数値となる文字
@@ -37,10 +66,10 @@
     (coerce (f (coerce s 'list)) 'string)))
 ;}}}
 
-;; -------------------------------------------------------------------------------------------------
-;; 日本語版リクエストパラメータデコーダ
-;; 文字ごとではなく、バイトごとにデコードする(URLの正式なエンコーディング準拠)
-;; -------------------------------------------------------------------------------------------------
+;;; ------------------------------------------------------------------------------------------------
+;;; 日本語版リクエストパラメータデコーダ
+;;; 文字ごとではなく、バイトごとにデコードする(URLの正式なエンコーディング準拠)
+;;; ------------------------------------------------------------------------------------------------
 (defun http-byte (c1 c2 &optional (default #\Space));{{{
   "16進数で表された文字をバイト数値にデコードする
    c1: 2桁目の数値となる文字
@@ -78,12 +107,19 @@
       charset:utf-8)
     #+sbcl
     (sb-ext:octets-to-string
-      (coerce (f (coerce (sb-ext:string-to-octets s :external-format :utf-8) 'list)) 'vector)
+      (coerce (f (coerce (sb-ext:string-to-octets s :external-format :utf-8) 'list)) '(vector (unsigned-byte 8)))
       :external-format :utf-8)))
 ;}}}
 
+;;; リクエストパラメータのデコーダ
+(defun decode-param (s);{{{
+  (let ((param-enc :ja))
+    (cond ((equal param-enc :en) (decode-param-en s))
+          ((equal param-enc :ja) (decode-param-ja s)))))
+;}}}
+
 ; ソケットの文字エンコーディングをutf-8に指定する
-;; *NOTE* 日本語を表示するためには必ず指定すること
+;;; *NOTE* 日本語を表示するためには必ず指定すること
 #+clisp;{{{
 (setf *default-file-encoding* charset:utf-8)
 #+sbcl
@@ -91,9 +127,9 @@
       sb-alien::*default-c-string-external-format* :utf-8)
 ;}}}
 
-;; -------------------------------------------------------------------------------------------------
-;; リクエストパラメータのリストをデコードする
-;; -------------------------------------------------------------------------------------------------
+;;; ------------------------------------------------------------------------------------------------
+;;; リクエストパラメータのリストをデコードする
+;;; ------------------------------------------------------------------------------------------------
 (defun parse-params (s);{{{
   "リクエストパラメータのalistを返す
    s: リクエストパラメータの文字列
@@ -108,10 +144,10 @@
           (t s))))	; リクエストパラメータの書式ではない文字列の場合、文字列をそのまま返す
 ;}}}
 
-;; -------------------------------------------------------------------------------------------------
-;; リクエストヘッダを解析する
-;; -------------------------------------------------------------------------------------------------
-;; リクエストラインを解析する
+;;; ------------------------------------------------------------------------------------------------
+;;; リクエストヘッダを解析する
+;;; ------------------------------------------------------------------------------------------------
+;;; リクエストラインを解析する
 (defun parse-request-line (s);{{{
   "リクエストヘッダのリクエストラインからURLを取り出す
    s: リクエストライン
@@ -125,7 +161,7 @@
         (cons url '()))))    ; url本体部と空リストとのコンスセル
 ;}}}
 
-;; HTTPヘッダフィールドを解析する
+;;; HTTPヘッダフィールドを解析する
 (defun get-header (stream);{{{
   "リクエストヘッダのHTTPヘッダフィールドからリクエストパラメータを返す
    stream: HTTPヘッダフィールド
@@ -141,9 +177,9 @@
       (cons h (get-header stream)))))
 ;}}}
 
-;; -------------------------------------------------------------------------------------------------
-;; (POSTリクエストの場合)リクエストボディの解析
-;; -------------------------------------------------------------------------------------------------
+;;; ------------------------------------------------------------------------------------------------
+;;; (POSTリクエストの場合)リクエストボディの解析
+;;; ------------------------------------------------------------------------------------------------
 (defun get-content-params (stream header);{{{
   "リクエストヘッダの後にあるリクエストボディから、パラメータを取り出す
    stream: ストリーム
@@ -156,9 +192,42 @@
         (parse-params content)))))      ; リクエストパラメータの連想リストを作る
 ;}}}
 
-;; -------------------------------------------------------------------------------------------------
-;; サーバ実行
-;; -------------------------------------------------------------------------------------------------
+;;; ------------------------------------------------------------------------------------------------
+;;; サーバ実行
+;;; ------------------------------------------------------------------------------------------------
+
+;;; クライアントからのリクエストを受け付ける
+
+(defun response-status-line (path header params);{{{
+  "HTTPレスポンスステータスラインを出力する
+   path: URLのパス部分
+   header: HTTPヘッダフィールド
+   params: URL末尾(GET用)とリクエストボディ(POST用)のリクエストパラメータ"
+  (declare (ignore path)
+           (ignore header)
+           (ignore params))
+  (princ "HTTP/1.1 200 OK"))
+;}}}
+
+(defun response-header (path header params);{{{
+  "HTTPレスポンスヘッダを出力する
+   path: URLのパス部分
+   header: HTTPヘッダフィールド
+   params: URL末尾(GET用)とリクエストボディ(POST用)のリクエストパラメータ"
+  (declare (ignore path)
+           (ignore header)
+           (ignore params))
+  ;; Google Chromeで受け付ける程度のヘッダ内容を出力する
+  ;; 時刻などは適当
+  (princ "Server: lispserver
+Date: Tue, 11 Jul 2017 09:23:07 GMT
+Content-Type: text/html
+Connection: none
+
+"))
+;}}}
+
+#+clisp
 (defun serve (request-handler);{{{
   "request-handler: リクエストハンドラ。解析したリクエストを使う。"
   (let ((socket (socket-server 8080)))  ; サーバのポート番号
@@ -170,7 +239,57 @@
                      (params (append (cdr url)     ; URL末尾(GET用)とリクエストボディ(POST用)のリクエストパラメータ
                                      (get-content-params stream header)))
                      (*standard-output* stream))   ; ストリームを標準出力に設定
-                (funcall request-handler path header params))))  ; 
+                (response-status-line path header params)       ; レスポンスステータスライン
+                (response-header path header params)            ; レスポンスヘッダ
+                (funcall request-handler path header params)))) ; レスポンスのボディ
       (socket-server-close socket))))
+;}}}
+
+#+sbcl
+(defun serve (address port request-handler);{{{
+  "request-handler: リクエストハンドラ。解析したリクエストを使う"
+  (let
+    ;; ソケットオブジェクト
+    ;; - tcp接続によるinetドメインソケット
+    ;; - 他にはUNIXドメインソケットが使用可能
+    ((socket (make-instance 'inet-socket     ; inetドメインソケット
+                            :type :stream    ; 他にはデータグラムも選択可
+                            :protocol :tcp)) ; tcp通信
+     ;; ソケットがアクセプトしていないセッションの最大保持数
+     (backlog-max 100))
+
+    ;; アドレスを使い回す
+    (setf (sockopt-reuse-address socket) t)
+
+    ;; 指定したアドレスおよびポートにソケットをバインド
+    (socket-bind socket address port)
+    (princ "-*- socket bound -*-") (princ #\newline)
+    (princ "object:socket : ") (princ socket) (princ #\newline)
+
+    ;; ブロッキングコール : 通信接続を待つための準備を行う
+    (socket-listen socket backlog-max)
+    (princ "-*- socket ready to listen -*-") (princ #\newline)
+    (princ "object:socket : ") (princ socket) (princ #\newline)
+
+    (unwind-protect  ; 例外時にソケットが確実に閉じられるようにする
+      ;; 接続が確立する度にソケットオブジェクトをstreamにセットする
+      (loop
+        (multiple-value-bind (connection client-addr) (socket-accept socket)
+          (with-open-stream
+            (stream (socket-make-stream connection
+                                        :buffering :none
+                                        :input t
+                                        :output t))
+            (let* ((url    (parse-request-line (read-line stream)))  ; streamからURLとリクエストパラメータを得る
+                   (path   (car url))            ; URLのパス部
+                   (header (get-header stream))  ; HTTPヘッダフィールド
+                   (params (append (cdr url)     ; URL末尾(GET用)とリクエストボディ(POST用)のリクエストパラメータ
+                                   (get-content-params stream header)))
+                   (*standard-output* stream))   ; ストリームを標準出力に設定
+              (response-status-line path header params)       ; レスポンスステータスライン
+              (response-header path header params)            ; レスポンスヘッダ
+              (funcall request-handler path header params))))) ; レスポンスのボディ
+      (progn
+        (socket-close sockect)))))
 ;}}}
 

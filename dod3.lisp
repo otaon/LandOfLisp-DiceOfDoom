@@ -5,25 +5,31 @@
 ;;; ------------------------------------------------------------------------------------------------
 
 ;;; カレントディレクトリを変更する
-#+clisp;{{{
-(ext:cd "~/github/Books/LandOfLisp/LandOfLisp-DiceOfDoom")
+ ;{{{
+#+clisp
+(eval-when (compile load eval)
+  (ext:cd "~/github/Books/LandOfLisp/LandOfLisp-DiceOfDoom"))
 
 #+sbcl
-(progn
-  (sb-posix:chdir #P"~/github/Books/LandOfLisp/LandOfLisp-DiceOfDoom")
-  (setf *default-pathname-defaults* (sb-ext:native-pathname (format nil "~A~A" (sb-posix:getcwd) "/"))))
+(eval-when (compile load eval)
+  (progn
+    (sb-posix:chdir #P"~/github/Books/LandOfLisp/LandOfLisp-DiceOfDoom")
+    (setf *default-pathname-defaults* (sb-ext:native-pathname (format nil "~A~A" (sb-posix:getcwd) "/")))))
 ;}}}
 
 ;;; 下記をコンパイル、ロードする
 ;;; - dice of doom v2
 ;;; - web server ライブラリ
 ;;; - svg ライブラリ
-(compile-file "dod2");{{{
-(compile-file "webserver")
-(compile-file "svg")
-(load "dod2")
-(load "webserver")
-(load "svg")
+(eval-when (compile load eval);{{{
+  (progn
+    (compile-file "dod2")
+    (compile-file "webserver")
+    (compile-file "svg")
+    (load "dod2")
+    (load "webserver")
+    (load "svg")
+    (in-package "COMMON-LISP-USER")))
 ;}}}
 
 
@@ -46,7 +52,8 @@
   "指定した座標にサイコロを1つ描画する
    x: サイコロを描画するx座標(pixel)
    y: サイコロを描画するy座標(pixel)
-   col: サイコロの色(RGB値)"
+   col: サイコロの色(RGB値)
+   ret: -"
   (labels ((calc-pt (pt)
              ;; 描画対象の座標を補正する
              ;; pt:  補正する前の座標コンスセル
@@ -90,7 +97,7 @@
 ;;; ------------------------------------------------------------------------------------------------
 ;;; マスを描画する
 ;;; ------------------------------------------------------------------------------------------------
-(defun draw-tile-svg (x y pos hex xx yy col chosen-tile)
+(defun draw-tile-svg (x y pos hex xx yy col chosen-tile);{{{
   "六角形のマスとその上に積み上がったサイコロを描く
    x: マスのx座標(マス目)
    y: マスのy座標(マス目)
@@ -100,7 +107,7 @@
    yy: マスの描画用y座標(pixel)
    col: マスとサイコロの色
    chosen-tile: 選択中のマスの番号
-   ret: "
+   ret: -"
   ;; マスを描く(厚みを持たせるため、縦をずらして2重に描く)
   (loop for z below 2
         do (polygon (mapcar (lambda (pt)
@@ -123,19 +130,21 @@
                                    0.3)))
                          (- yy (* *dice-scale* z 0.8))
                          col)))
-
+;}}}
 
 ;;; ------------------------------------------------------------------------------------------------
 ;;; ゲーム盤を描く
 ;;; ------------------------------------------------------------------------------------------------
 ;; サイコロの色(赤と青)
-(defparameter *die-colors* '((255 63 63) (63 63 255)))
+(defparameter *die-colors* '((255 63 63) (63 63 255)));{{{
+;}}}
 
-(defun draw-board-svg (board chosen-tile legal-tiles)
+(defun draw-board-svg (board chosen-tile legal-tiles);{{{
   "ゲーム盤をsvg記述する
    board: ゲーム盤情報
    chosen-tile: 選択中のマス
-   legal-tiles: プレイヤーが次に選択可能なマスのリスト"
+   legal-tiles: プレイヤーが次に選択可能なマスのリスト
+   ret: -"
   ;; ゲーム盤の全マスを走査する
   (loop for y below *board-size*
         do (loop for x below *board-size*
@@ -159,12 +168,149 @@
                              (tag a ("xlink:href" (make-game-link pos))
                                   (draw-tile-svg x y pos hex xx yy col chosen-tile)))
                         (draw-tile-svg x y pos hex xx yy col chosen-tile)))))
+;}}}
 
-(defun make-game-link (pos)
+(defun make-game-link (pos);{{{
   "リンクするURLを生成する
-   pos: リンク対象のマスの番号"
+   pos: リンク対象のマスの番号
+   ret: -"
   (format nil "/game.html?chosen=~a" pos))
+;}}}
 
+;;; ------------------------------------------------------------------------------------------------
+;;; リクエストハンドラ
+;;; ------------------------------------------------------------------------------------------------
+;; 現在のゲーム木
+(defparameter *cur-game-tree* nil);{{{
+(defparameter *from-tile* nil)
+;}}}
 
+(defun dod-request-handler (path header params);{{{
+  "Webブラウザから来る全てのリクエストを処理する
+   path: URL
+   header: *未使用*
+   params: URLのパラメータ
+   ret: -"
+  ;; アクセスされたURLがgame.htmlならゲーム処理する
+  (if (equal path "game.html")
+      ;; doctypeを指定して、html5だと認識させる
+      (progn (princ "<!doctype html>")
+             (tag center ()
+                  (princ "Welcome to DICE OF DOOM!")
+                  (tag br ())
+                  (let ((chosen (assoc 'chosen params)))
+                    ;; どのマスも選択されていないか、ゲーム木が空なら、
+                    ;; ゲームを初期化する
+                    (when (or (not *cur-game-tree*) (not chosen))
+                      (setf chosen nil)
+                      (web-initialize))
+                    ;; ゲーム木における可能な手が空なら、ゲームを終了させる
+                    ;; 人間のプレイヤーの手番なら、パラメータから指し手を取得し、htmlを組み立てる
+                    ;; ゲームAIの手番なら、ゲームAIに指し手を選ばせ、htmlを組み立てる
+                    (cond ((lazy-null (caddr *cur-game-tree*))
+                           (web-announce-winner (cadr *cur-game-tree*)))
+                          ((zerop (car *cur-game-tree*))
+                           (web-handle-human
+                             (when chosen
+                               (read-from-string (cdr chosen)))))
+                          (t (web-handle-computer))))
+                  (tag br ())
+                  ;; ゲーム盤を描く
+                  (draw-dod-page *cur-game-tree* *from-tile*)))
+      (princ "Sorry... I don't know that page.")))
+;}}}
 
+(defun web-initialize ();{{{
+  "ゲームエンジンを初期化する
+   ret: -"
+  ;; ランダムなゲーム盤を作成して保持する
+  (setf *from-tile* nil)
+  (setf *cur-game-tree* (game-tree (gen-board) 0 0 t)))
+;}}}
+
+(defun web-announce-winner (board);{{{
+  "勝者を表示する"
+  (fresh-line)
+  (let ((w (winners board)))
+    (if (> (length w) 1)
+        (format t "The game is a tie between ~a" (mapcar #'player-letter w))
+        (format t "The winner is ~a" (player-letter (car w)))))
+  (tag a (href "game.html")
+       (princ " play again")))
+;}}}
+
+(defun web-handle-human (pos);{{{
+  "人間のプレイヤーを処理する
+   pos: 選択したマスの番号"
+  (cond ((not pos) (princ "Please choose a hex to move from:"))
+        ((eq pos 'pass) (setf *cur-game-tree*
+                              (cadr (lazy-car (caddr *cur-game-tree*))))
+                        (princ "Your reinforcements have been placed.")
+                        (tag a (href (make-game-link nil))
+                             (princ "continue")))
+        ((not *from-tile*) (setf *from-tile* pos)
+                           (princ "Now choose a destination:"))
+        ((eq pos *from-tile*) (setf *from-tile* nil)
+                              (princ "Move cancelled."))
+        (t (setf *cur-game-tree*
+                 (cadr (lazy-find-if (lambda (move)
+                                       (equal (car move)
+                                              (list *from-tile* pos)))
+                                     (caddr *cur-game-tree*))))
+           (setf *from-tile* nil)
+           (princ "You may now ")
+           (tag a (href (make-game-link 'pass))
+                (princ "pass"))
+           (princ " or make another move:"))))
+;}}}
+
+(defun web-handle-computer ();{{{
+  "ゲームAIプレイヤーを処理する"
+  (setf *cur-game-tree* (handle-computer *cur-game-tree*))
+  (princ "The computer has moved. ")
+  (tag script ()
+       (princ "window.setTimeout('window.location=\"game.html?chosen=NIL\"',5000)")))
+;}}}
+
+(defun draw-dod-page (tree selected-tile);{{{
+  (svg *board-width*
+       *board-height*
+       (draw-board-svg (cadr tree)
+                       selected-tile
+                       (take-all (if selected-tile
+                                     (lazy-mapcar
+                                       (lambda (move)
+                                         (when (eql (caar move)
+                                                    selected-tile)
+                                           (cadar move)))
+                                       (caddr tree))
+                                     (lazy-mapcar #'caar (caddr tree)))))))
+;}}}
+
+(defun serve (handler)
+  (SBCL-SOCKET-SERVER:serve1 handler))
+
+;;; ------------------------------------------------------------------------------------------------
+;;; サーバテスト用ハンドラ
+;;; ------------------------------------------------------------------------------------------------
+(defun hello-request-handler (path header params);{{{
+  "名前を問いかけて、得られたその名前を使って挨拶する
+   CAUTION! リクエストパラメータをサニタイズしていないため、WANでの使用不可
+   path: URLのパス部分
+   header: HTTPヘッダフィールド
+   params: URL末尾(GET用)とリクエストボディ(POST用)のリクエストパラメータ
+   ret: レスポンスするHTMLドキュメント"
+  (declare (ignore header))  ; 本関数ではHTTPヘッダフィールドは無視する
+  ;; "/greeting"ページのみ提供する
+  (if (equal path "greeting")
+      ;; ページが"greeting"ならパラメータに合わせて表示処理を行う
+      (let ((name (assoc 'name params)))
+        (if (not name)
+            ;; パラメータにnameが無ければ、もう一度名前を問いかける
+            (princ "<html><form>What is your name?<input name='name' /></form></html>")
+            ;; パラメータにnameがあれば、挨拶を表示する
+            (format t "<html>Nice to meet you, ~a!</html>" (cdr name))))
+      ;; ページが"greeting"でなければ、要求されたページが無い旨を表示する
+      (princ "Sorry... I don't know that page.")))
+;}}}
 
