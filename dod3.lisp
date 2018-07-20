@@ -242,53 +242,81 @@
 (defun web-handle-human (pos);{{{
   "人間のプレイヤーを処理する
    pos: 選択したマスの番号"
-  (cond ((not pos) (princ "Please choose a hex to move from:"))
-        ((eq pos 'pass) (setf *cur-game-tree*
-                              (cadr (lazy-car (caddr *cur-game-tree*))))
-                        (princ "Your reinforcements have been placed.")
-                        (tag a (href (make-game-link nil))
-                             (princ "continue")))
-        ((not *from-tile*) (setf *from-tile* pos)
-                           (princ "Now choose a destination:"))
-        ((eq pos *from-tile*) (setf *from-tile* nil)
-                              (princ "Move cancelled."))
-        (t (setf *cur-game-tree*
-                 (cadr (lazy-find-if (lambda (move)
-                                       (equal (car move)
-                                              (list *from-tile* pos)))
-                                     (caddr *cur-game-tree*))))
-           (setf *from-tile* nil)
-           (princ "You may now ")
-           (tag a (href (make-game-link 'pass))
-                (princ "pass"))
-           (princ " or make another move:"))))
+  (cond
+    ;; マスを未選択:
+    ;; 攻撃元のマス選択メッセージを表示
+    ((not pos) (princ "Please choose a hex to move from:"))
+    ;; パスを選択済み:
+    ;; プレイヤーの補給が完了したとメッセージを表示
+    ;; パラメータにnilを渡すcontinueリンクを表示
+    ((eq pos 'pass) (setf *cur-game-tree*
+                          (cadr (lazy-car (caddr *cur-game-tree*))))
+                    (princ "Your reinforcements have been placed.")
+                    (tag a (href (make-game-link nil))
+                         (princ "continue")))
+    ;; マスを選択済み & 攻撃元のタイルがセットされていない:
+    ;; 今選ばれたマスを攻撃元としてセット
+    ((not *from-tile*) (setf *from-tile* pos)
+                       (princ "Now choose a destination:"))
+    ;; 今選択したマスが攻撃元のタイルと同じ:
+    ;; 攻撃元のタイルをリセット
+    ((eq pos *from-tile*) (setf *from-tile* nil)
+                          (princ "Move cancelled."))
+    ;; 上記以外(=攻撃元と攻撃先を選択完了した):
+    ;; 攻撃元と攻撃先に対応するゲーム木に遷移する
+    ;; 次の手を指すかパスするかを選ばせる
+    (t (setf *cur-game-tree*
+             (cadr (lazy-find-if (lambda (move)
+                                   (equal (car move)
+                                          (list *from-tile* pos)))
+                                 (caddr *cur-game-tree*))))
+       (setf *from-tile* nil)
+       (princ "You may now ")
+       (tag a (href (make-game-link 'pass))
+            (princ "pass"))
+       (princ " or make another move:"))))
 ;}}}
 
 (defun web-handle-computer ();{{{
   "ゲームAIプレイヤーを処理する"
+  ;; ゲームAIにゲーム木を遷移させる
   (setf *cur-game-tree* (handle-computer *cur-game-tree*))
   (princ "The computer has moved. ")
+  ;; webブラウザを5秒毎にリロードさせる
+  ;; これによりリロードしたときにはコンピュータの手番とさせるために、chosen=NILとしている
   (tag script ()
        (princ "window.setTimeout('window.location=\"game.html?chosen=NIL\"',5000)")))
 ;}}}
 
 (defun draw-dod-page (tree selected-tile);{{{
-  (svg *board-width*
-       *board-height*
+  "HTMLの中にSVGゲーム盤を描く
+   tree: ゲーム木
+   selected-tile: タイルを選択中か"
+  (svg *board-width*  ; ゲーム盤の幅
+       *board-height* ; ゲーム盤の高さ
        (draw-board-svg (cadr tree)
                        selected-tile
+                       ;; プレイヤーが選択可能なマスのリストを計算する
                        (take-all (if selected-tile
+                                     ;; 攻撃元のタイルを選択中なら、
+                                     ;; 有効な攻撃先を全て収集する
                                      (lazy-mapcar
                                        (lambda (move)
                                          (when (eql (caar move)
                                                     selected-tile)
                                            (cadar move)))
                                        (caddr tree))
+                                     ;; 攻撃元のタイルを選択していなかったら、
+                                     ;; 有効な攻撃から、攻撃元を収集する
                                      (lazy-mapcar #'caar (caddr tree)))))))
 ;}}}
 
-(defun serve (handler)
+;;; ------------------------------------------------------------------------------------------------
+;;; サーバ駆動関数ラッパ
+;;; ------------------------------------------------------------------------------------------------
+(defun serve (handler);{{{
   (SBCL-SOCKET-SERVER:serve1 handler))
+;}}}
 
 ;;; ------------------------------------------------------------------------------------------------
 ;;; サーバテスト用ハンドラ
