@@ -271,10 +271,10 @@ Connection: none
     (princ "-*- socket ready to listen -*-") (princ #\newline)
     (princ "object:socket : ") (princ socket) (princ #\newline)
 
-    (unwind-protect  ; 例外時にソケットが確実に閉じられるようにする
-      ;; 接続が確立する度にソケットオブジェクトをstreamにセットする
-      (loop
-        (multiple-value-bind (connection client-addr) (socket-accept socket)
+    (loop (multiple-value-bind (connection client-addr) (socket-accept socket)
+        ;; 例外時にソケットが確実に閉じられるようにする
+        (unwind-protect
+          ;; 接続が確立する度にソケットオブジェクトをstreamにセットする 
           (with-open-stream
             (stream (socket-make-stream connection
                                         :buffering :none
@@ -288,8 +288,8 @@ Connection: none
                    (*standard-output* stream))   ; ストリームを標準出力に設定
               (response-status-line path header params)       ; レスポンスステータスライン
               (response-header path header params)            ; レスポンスヘッダ
-              (funcall request-handler path header params))))) ; レスポンスのボディ
-      (progn
-        (socket-close sockect)))))
+              (funcall request-handler path header params)))  ; レスポンスのボディ
+          ;; 例外時にコネクションを確実に閉じる
+          (socket-close connection))))))
 ;}}}
 
