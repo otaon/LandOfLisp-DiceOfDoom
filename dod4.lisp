@@ -322,7 +322,7 @@
                            (f (1+ pos) (append cluster visited) size)
                            (f (1+ pos) (append cluster visited) best)))
                      ;; プレイヤーの領域ではなかったら、もしくは、走査済みだったら、
-                     ;; 今までのペストをaccumlatorとしてfに渡して再帰的に走査する
+                     ;; 今までのベストをaccumlatorとしてfに渡して再帰的に走査する
                      (f (1+ pos) visited best))
                  ;; ゲーム盤を全て走査し終わったら、一番大きな領域のサイズを返す
                  best)))
